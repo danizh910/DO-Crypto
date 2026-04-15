@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git & Deployment
+
+- **Remote:** https://github.com/danizh910/DO-Crypto (branch: `main`)
+- **Auto-push policy:** After every meaningful change, commit and `git push origin main` without asking for confirmation.
+- **Vercel:** Connected to the GitHub repo. Every push to `main` triggers a deploy automatically.
+- Never commit `.env.local` (it is in `.gitignore`).
+
 ## Project Overview
 
 **DO Crypto** — a high-end crypto banking MVP for Daniel & Onur. Runs exclusively on Ethereum testnets (Sepolia / Base Sepolia). The product must look and feel production-grade despite being testnet-only.
