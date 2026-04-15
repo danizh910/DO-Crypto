@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx create-next-app@latest do-crypto-temp --typescript --tailwind --eslint --app --src-dir=false --import-alias=\"@/*\" --no-git --yes)"
+      "Bash(npx create-next-app@latest do-crypto-temp --typescript --tailwind --eslint --app --src-dir=false --import-alias=\"@/*\" --no-git --yes)",
+      "Bash(unset __NEXT_PRIVATE_STANDALONE_CONFIG)",
+      "Bash(npm install:*)",
+      "Bash(npm list:*)",
+      "Bash(node -e \"require\\('@tailwindcss/postcss'\\); console.log\\('OK'\\)\" --prefix \"c:/Users/tukib/OneDrive - bbw.ch/DO Crypto\")",
+      "Bash(node -e \"try { const m = require\\('@tailwindcss/postcss'\\); console.log\\('Found:', !!m\\); } catch\\(e\\) { console.log\\('Error:', e.message\\); }\")"
     ]
   }
 }

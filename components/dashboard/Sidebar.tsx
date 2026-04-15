@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Send,
   LogOut,
-  Wallet,
 } from "lucide-react";
 import { ConnectKitButton } from "connectkit";
 import { createClient } from "@/lib/supabase/client";

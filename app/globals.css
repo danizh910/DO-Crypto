@@ -1,21 +1,6 @@
-@import "tailwindcss";
-
-@theme inline {
-  /* DO Crypto Color Palette */
-  --color-background: #020617;
-  --color-card: #0F172A;
-  --color-popover: #0F172A;
-  --color-primary: #22D3EE;
-  --color-secondary: #6366F1;
-  --color-success: #10B981;
-  --color-foreground: #F8FAFC;
-  --color-muted: #334155;
-  --color-muted-foreground: #94A3B8;
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-destructive: #EF4444;
-
-  --font-sans: var(--font-inter);
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   color-scheme: dark;
@@ -28,16 +13,17 @@
 body {
   background-color: #020617;
   color: #F8FAFC;
-  font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 /* Glassmorphism utility */
-.glass {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
 }
 
 /* Subtle scrollbar */

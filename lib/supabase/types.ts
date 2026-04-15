@@ -1,9 +1,6 @@
-export type SatoshiStatus = "pending" | "verified" | "failed";
-
-export interface User {
+export interface Profile {
   id: string;
   email: string;
-  full_name: string | null;
   created_at: string;
 }
 
@@ -11,8 +8,8 @@ export interface Wallet {
   id: string;
   user_id: string;
   address: string;
-  satoshi_status: SatoshiStatus;
-  satoshi_amount: number | null;
+  satoshi_challenge_amount: number | null;
+  is_verified: boolean;
   verified_at: string | null;
   created_at: string;
 }
@@ -20,8 +17,8 @@ export interface Wallet {
 export interface Transaction {
   id: string;
   user_id: string;
-  wallet_id: string;
-  tx_hash: string;
+  wallet_id: string | null;
+  tx_hash: string | null;
   amount: string;
   token: string;
   chain_id: number;

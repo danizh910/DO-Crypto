@@ -9,7 +9,7 @@ export default function LoginPage() {
         <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full bg-secondary/5 blur-[100px]" />
       </div>
 
-      <div className="relative z-10 w-full px-4">
+      <div className="relative z-10 w-full px-4 flex justify-center">
         <LoginCard />
       </div>
     </main>
