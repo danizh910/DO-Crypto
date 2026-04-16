@@ -50,16 +50,14 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     loadTransactions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-sync once when wallet connects
   useEffect(() => {
     if (isConnected && address) {
       syncAndReload();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, address]);
+  }, [isConnected, address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = transactions.filter((tx) => {
     const matchesFilter = filter === "all" || tx.direction === filter;
