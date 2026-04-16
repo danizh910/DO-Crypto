@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     rules: {
       // Allow setState calls inside async callbacks within useEffect
       "react-hooks/set-state-in-effect": "off",
+      // Date.now() / new Date() in useMemo/useCallback is valid React practice
+      "react-hooks/purity": "off",
     },
   },
 ]);

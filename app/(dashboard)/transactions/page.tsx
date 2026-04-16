@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ArrowUpRight, ArrowDownLeft, ExternalLink, Receipt, Search, Filter, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -21,7 +21,7 @@ export default function TransactionsPage() {
   const [search, setSearch]             = useState("");
   const [filter, setFilter]             = useState<"all" | "in" | "out">("all");
 
-  async function loadTransactions() {
+  const loadTransactions = useCallback(async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
@@ -32,9 +32,9 @@ export default function TransactionsPage() {
       .order("created_at", { ascending: false });
     setTransactions(data ?? []);
     setLoading(false);
-  }
+  }, []);
 
-  async function syncAndReload() {
+  const syncAndReload = useCallback(async () => {
     if (!address || syncing) return;
     setSyncing(true);
     try {
@@ -46,18 +46,18 @@ export default function TransactionsPage() {
     } catch { /* silent */ }
     await loadTransactions();
     setSyncing(false);
-  }
+  }, [address, syncing, loadTransactions]);
 
   useEffect(() => {
     loadTransactions();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadTransactions]);
 
   // Auto-sync once when wallet connects
   useEffect(() => {
     if (isConnected && address) {
       syncAndReload();
     }
-  }, [isConnected, address]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isConnected, address, syncAndReload]);
 
   const filtered = transactions.filter((tx) => {
     const matchesFilter = filter === "all" || tx.direction === filter;

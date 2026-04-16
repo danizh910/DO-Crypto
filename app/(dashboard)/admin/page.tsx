@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield, Send, Loader2, Users, Activity,
@@ -98,12 +98,12 @@ export default function AdminPage() {
   const aria    = AGENT_REGISTRY["aria"];
   const workers = ["compliance", "market", "risk", "support"].map(id => AGENT_REGISTRY[id]);
 
-  // Determine live status from recent logs (fiveMin computed outside render via useMemo)
-  const fiveMinAgo = useMemo(() => Date.now() - 5 * 60 * 1000, [logs]);
-  function agentLiveStatus(agentId: string): "active" | "idle" {
+  // Determine live status from recent logs
+  const agentLiveStatus = useCallback((agentId: string): "active" | "idle" => {
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
     return logs.some(l => l.agent_id === agentId && new Date(l.created_at).getTime() > fiveMinAgo)
       ? "active" : "idle";
-  }
+  }, [logs]);
 
   return (
     <div className="max-w-7xl space-y-6">
