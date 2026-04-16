@@ -25,6 +25,7 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasVerifiedWallet, setHasVerifiedWallet] = useState(false);
   const [checkingWallet, setCheckingWallet] = useState(false);
+  const [walletRefresh, setWalletRefresh] = useState(0);
 
   // Profile form
   const [form, setForm] = useState({
@@ -37,24 +38,24 @@ export default function OnboardingPage() {
     return { value: form[name], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(f => ({ ...f, [name]: e.target.value })) };
   }
 
-  async function checkWalletStatus() {
+  useEffect(() => {
+    if (step !== 2) return;
     setCheckingWallet(true);
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setCheckingWallet(false); return; }
-    const { data } = await supabase
-      .from("wallets")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("is_verified", true)
-      .limit(1);
-    setHasVerifiedWallet((data?.length ?? 0) > 0);
-    setCheckingWallet(false);
-  }
-
-  useEffect(() => {
-    if (step === 2) checkWalletStatus();
-  }, [step]);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { setCheckingWallet(false); return; }
+      supabase
+        .from("wallets")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_verified", true)
+        .limit(1)
+        .then(({ data }) => {
+          setHasVerifiedWallet((data?.length ?? 0) > 0);
+          setCheckingWallet(false);
+        });
+    });
+  }, [step, walletRefresh]);
 
   async function saveProfile() {
     if (!form.first_name || !form.last_name || !form.date_of_birth) {
@@ -263,7 +264,7 @@ export default function OnboardingPage() {
                     Satoshi-Test jetzt starten
                   </a>
                   <button
-                    onClick={checkWalletStatus}
+                    onClick={() => setWalletRefresh(n => n + 1)}
                     className="w-full flex items-center justify-center gap-2 py-2.5 border border-border text-muted-foreground rounded-xl hover:text-foreground transition-all text-sm"
                   >
                     {checkingWallet ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
