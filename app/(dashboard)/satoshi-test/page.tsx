@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, usePublicClient } from "wagmi";
-import { formatEther, parseEther, isAddress } from "viem";
+import { formatEther, isAddress } from "viem";
 import { createClient } from "@/lib/supabase/client";
 import {
   ShieldCheck,
