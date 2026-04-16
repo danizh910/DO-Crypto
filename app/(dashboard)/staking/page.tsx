@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount } from "wagmi";
 import { TrendingUp, Zap, Lock, CheckCircle2, Loader2, ExternalLink, Info } from "lucide-react";
@@ -61,6 +61,29 @@ export default function StakingPage() {
   const [staked, setStaked] = useState<Set<string>>(new Set());
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [positionCount, setPositionCount] = useState(0);
+
+  // Load existing staking positions from DB on mount
+  useEffect(() => {
+    async function loadPositions() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("staking_positions")
+        .select("protocol, status")
+        .eq("user_id", user.id)
+        .eq("status", "active");
+      if (data) {
+        const stakedProtocols = new Set(
+          data.map((p) => PROTOCOLS.find((pr) => pr.name === p.protocol)?.id).filter(Boolean) as string[]
+        );
+        setStaked(stakedProtocols);
+        setPositionCount(data.length);
+      }
+    }
+    loadPositions();
+  }, []);
 
   async function handleStake(protocolId: string, protocolName: string, apy: number, token: string) {
     const amount = amounts[protocolId];
@@ -88,6 +111,7 @@ export default function StakingPage() {
       setError("Fehler: " + dbErr.message);
     } else {
       setStaked((prev) => new Set(prev).add(protocolId));
+      setPositionCount((prev) => prev + 1);
     }
     setStaking(null);
   }
@@ -117,7 +141,7 @@ export default function StakingPage() {
         {[
           { label: "Ø APY", value: "3.9%", icon: TrendingUp },
           { label: "Protokolle", value: "4", icon: Zap },
-          { label: "Deine Positionen", value: staked.size.toString(), icon: Lock },
+          { label: "Deine Positionen", value: positionCount.toString(), icon: Lock },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="glass rounded-xl p-4 flex items-center gap-3">
             <Icon className="w-4 h-4 text-muted-foreground" />

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits } from "viem";
-import { TrendingUp, ArrowUpRight, ArrowDownLeft, ShieldCheck, Coins, Wallet, AlertCircle } from "lucide-react";
+import { TrendingUp, ArrowUpRight, ArrowDownLeft, ShieldCheck, Coins, Wallet, AlertCircle, QrCode, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Transaction, Wallet as WalletType } from "@/lib/supabase/types";
 import { sepolia } from "wagmi/chains";
@@ -20,6 +20,7 @@ export default function PortfolioPage() {
   const [wallet, setWallet] = useState<WalletType | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [ethPrice, setEthPrice] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -48,15 +49,30 @@ export default function PortfolioPage() {
       setWallet(wallets?.[0] ?? null);
       setLoading(false);
     }
+
+    async function fetchEthPrice() {
+      try {
+        const res = await fetch(
+          "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+          { next: { revalidate: 60 } }
+        );
+        const json = await res.json();
+        setEthPrice(json?.ethereum?.usd ?? null);
+      } catch {
+        setEthPrice(null);
+      }
+    }
+
     load();
+    fetchEthPrice();
   }, []);
 
   const ethFormatted = ethBalance
     ? formatUnits(ethBalance.value, ethBalance.decimals)
     : null;
-  const ethValue = ethFormatted
-    ? (parseFloat(ethFormatted) * 2450).toFixed(2)
-    : "—";
+  const ethUsd = ethFormatted && ethPrice
+    ? (parseFloat(ethFormatted) * ethPrice).toFixed(2)
+    : null;
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -85,7 +101,10 @@ export default function PortfolioPage() {
                 <span className="text-primary text-2xl">ETH</span>
               </p>
               <p className="text-muted-foreground text-sm mt-1">
-                ≈ ${ethValue} <span className="text-xs">(Testnet-Preis simuliert)</span>
+                {ethUsd
+                  ? <>≈ <span className="text-foreground font-medium">${ethUsd}</span> <span className="text-xs">(Live ETH-Preis ~${ethPrice?.toLocaleString()})</span></>
+                  : <span className="text-xs">Live-Preis wird geladen…</span>
+                }
               </p>
               <div className="flex items-center gap-1 mt-2 text-success text-sm">
                 <TrendingUp className="w-4 h-4" />
@@ -98,12 +117,18 @@ export default function PortfolioPage() {
               <span>Verbinde deine Wallet um den Saldo zu sehen.</span>
             </div>
           )}
-          <div className="flex gap-3 mt-4">
+          <div className="flex gap-3 mt-4 flex-wrap">
             <Link
               href="/send"
               className="bg-primary text-background text-sm font-semibold px-5 py-2 rounded-lg hover:bg-primary/90 transition-all flex items-center gap-1.5"
             >
               <ArrowUpRight className="w-4 h-4" /> Senden
+            </Link>
+            <Link
+              href="/receive"
+              className="border border-primary/30 text-primary text-sm font-medium px-5 py-2 rounded-lg hover:bg-primary/5 transition-all flex items-center gap-1.5"
+            >
+              <QrCode className="w-4 h-4" /> Empfangen
             </Link>
             <Link
               href="/staking"
@@ -170,7 +195,7 @@ export default function PortfolioPage() {
           </motion.div>
         )}
 
-        {/* Holdings placeholder */}
+        {/* Holdings */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -183,9 +208,9 @@ export default function PortfolioPage() {
           </div>
           <div className="space-y-3">
             {[
-              { symbol: "ETH", name: "Sepolia ETH", amount: ethFormatted ? parseFloat(ethFormatted).toFixed(4) : "—", badge: "Live" },
-              { symbol: "USDC", name: "USD Coin", amount: "—", badge: "Testnet" },
-              { symbol: "stETH", name: "Staked ETH", amount: "—", badge: "Mock" },
+              { symbol: "ETH", name: "Sepolia ETH", amount: ethFormatted ? parseFloat(ethFormatted).toFixed(4) : "—", usd: ethUsd ? `$${ethUsd}` : null, badge: "Live" },
+              { symbol: "USDC", name: "USD Coin", amount: "—", usd: null, badge: "Testnet" },
+              { symbol: "stETH", name: "Staked ETH", amount: "—", usd: null, badge: "Mock" },
             ].map((asset) => (
               <div key={asset.symbol} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -199,7 +224,7 @@ export default function PortfolioPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium text-foreground">{asset.amount}</p>
-                  <span className="text-xs text-muted-foreground">{asset.badge}</span>
+                  <p className="text-xs text-muted-foreground">{asset.usd ?? asset.badge}</p>
                 </div>
               </div>
             ))}
@@ -213,7 +238,12 @@ export default function PortfolioPage() {
           transition={{ delay: 0.2 }}
           className={`${card} col-span-12 md:col-span-6`}
         >
-          <p className="text-sm text-muted-foreground mb-4">Letzte Transaktionen</p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">Letzte Transaktionen</p>
+            <Link href="/transactions" className="text-xs text-primary hover:underline flex items-center gap-1">
+              <Receipt className="w-3 h-3" /> Alle anzeigen
+            </Link>
+          </div>
           {loading ? (
             <p className="text-xs text-muted-foreground">Lädt…</p>
           ) : transactions.length > 0 ? (
