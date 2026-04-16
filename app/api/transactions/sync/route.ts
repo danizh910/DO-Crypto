@@ -19,31 +19,51 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ungültige Adresse" }, { status: 400 });
     }
 
-    const alchemyUrl = process.env.ALCHEMY_RPC_URL;
-    if (!alchemyUrl) return NextResponse.json({ error: "Alchemy nicht konfiguriert" }, { status: 500 });
+    // Build Alchemy URL — prefer the explicit RPC URL, fall back to the public key
+    const alchemyApiKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+    const alchemyUrl    = process.env.ALCHEMY_RPC_URL
+      ?? (alchemyApiKey ? `https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}` : null);
 
-    // Fetch incoming ETH transfers via Alchemy
-    const alchemyRes = await fetch(alchemyUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "alchemy_getAssetTransfers",
-        params: [{
-          fromBlock: "0x0",
-          toAddress: address,
-          category: ["external"],
-          withMetadata: true,
-          excludeZeroValue: true,
-          maxCount: "0x32",
-          order: "desc",
-        }],
-      }),
-    });
+    if (!alchemyUrl) {
+      return NextResponse.json({ error: "Alchemy nicht konfiguriert" }, { status: 500 });
+    }
+
+    // Fetch incoming ETH transfers via Alchemy with an 8-second timeout
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 8000);
+
+    let alchemyRes: Response;
+    try {
+      alchemyRes = await fetch(alchemyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "alchemy_getAssetTransfers",
+          params: [{
+            fromBlock: "0x0",
+            toAddress: address,
+            category: ["external"],
+            withMetadata: true,
+            excludeZeroValue: true,
+            maxCount: "0x32",
+            order: "desc",
+          }],
+        }),
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      const msg = fetchErr instanceof Error && fetchErr.name === "AbortError"
+        ? "Alchemy Timeout"
+        : "Alchemy nicht erreichbar";
+      return NextResponse.json({ error: msg }, { status: 502 });
+    }
+    clearTimeout(timeoutId);
 
     if (!alchemyRes.ok) {
-      return NextResponse.json({ error: "Alchemy-Fehler" }, { status: 502 });
+      return NextResponse.json({ error: `Alchemy HTTP ${alchemyRes.status}` }, { status: 502 });
     }
 
     const alchemyData = await alchemyRes.json();

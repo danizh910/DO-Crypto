@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount } from "wagmi";
 import { QrCode, Copy, CheckCircle2, Wallet, AlertCircle, RefreshCw, ArrowDownLeft } from "lucide-react";
@@ -22,32 +22,46 @@ export default function ReceivePage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  // Use a ref for the "in-flight" guard so it never appears in deps
+  const isSyncingRef = useRef(false);
+
   const syncTransactions = useCallback(async () => {
-    if (!address || syncing) return;
+    if (!address || isSyncingRef.current) return;
+    isSyncingRef.current = true;
     setSyncing(true);
     setSyncError("");
     setSyncResult(null);
+    // Mark as synced immediately so the auto-sync effect never retries
+    setHasSynced(true);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
       const res = await fetch("/api/transactions/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const data = await res.json();
       if (!res.ok) {
         setSyncError(data.error ?? "Fehler beim Synchronisieren");
       } else {
-        setSyncResult({ added: data.added, total: data.total });
-        setHasSynced(true);
+        setSyncResult({ added: data.added, total: data.total ?? 0 });
       }
-    } catch {
-      setSyncError("Netzwerkfehler");
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        setSyncError("Timeout — Alchemy antwortet nicht");
+      } else {
+        setSyncError("Netzwerkfehler");
+      }
     } finally {
+      isSyncingRef.current = false;
       setSyncing(false);
     }
-  }, [address, syncing]);
+  }, [address]); // isSyncingRef is stable (useRef), intentionally omitted
 
-  // Auto-sync once when wallet is connected
+  // Auto-sync once when wallet connects
   useEffect(() => {
     if (isConnected && address && !hasSynced) {
       syncTransactions();
