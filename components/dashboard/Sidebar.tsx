@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, TrendingUp, Send,
-  QrCode, Receipt, Settings, LogOut, Menu, X, Sparkles,
+  QrCode, Receipt, Settings, LogOut, Menu, X, Sparkles, Shield,
 } from "lucide-react";
 import { ConnectKitButton } from "connectkit";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "admin@docrypto.ch";
 
 const navItems = [
   { href: "/portfolio",    label: "Portfolio",      icon: LayoutDashboard },
@@ -25,6 +27,14 @@ const navItems = [
 function NavContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsAdmin(user?.email === ADMIN_EMAIL);
+    });
+  }, []);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -82,6 +92,31 @@ function NavContent({ onClose }: { onClose?: () => void }) {
           );
         })}
       </nav>
+
+      {/* Admin link — only visible for admin */}
+      {isAdmin && (
+        <div className="mt-3 pt-3 border-t border-white/5">
+          <Link href="/admin" onClick={onClose}>
+            <motion.div
+              whileHover={{ x: 2 }}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                pathname.startsWith("/admin")
+                  ? "bg-secondary/10 text-secondary font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}
+            >
+              <Shield className="w-4 h-4 shrink-0" />
+              Admin
+              {pathname.startsWith("/admin") && (
+                <motion.div
+                  layoutId="sidebar-indicator"
+                  className="ml-auto w-1 h-4 rounded-full bg-secondary"
+                />
+              )}
+            </motion.div>
+          </Link>
+        </div>
+      )}
 
       <div className="space-y-3 pt-4 border-t border-white/5">
         <div className="flex justify-center">

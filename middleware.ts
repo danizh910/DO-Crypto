@@ -40,12 +40,23 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/ai");
 
   const isOnboarding = path.startsWith("/onboarding");
+  const isAdmin = path.startsWith("/admin");
 
   // Not logged in → go to login
-  if (!user && (isDashboard || isOnboarding)) {
+  if (!user && (isDashboard || isOnboarding || isAdmin)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Admin routes: only for admin email
+  if (user && isAdmin) {
+    const adminEmail = process.env.ADMIN_EMAIL ?? "admin@docrypto.ch";
+    if (user.email !== adminEmail) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/portfolio";
+      return NextResponse.redirect(url);
+    }
   }
 
   // Logged in but onboarding not complete → redirect to /onboarding
@@ -73,5 +84,6 @@ export const config = {
     "/settings/:path*",
     "/ai/:path*",
     "/onboarding/:path*",
+    "/admin/:path*",
   ],
 };
