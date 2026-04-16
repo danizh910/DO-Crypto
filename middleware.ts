@@ -4,14 +4,17 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // Skip middleware if env vars not set (prevents hanging on misconfigured deployments)
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
+        getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
@@ -25,11 +28,13 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const isDashboard = request.nextUrl.pathname.startsWith("/portfolio") ||
+  const isDashboard =
+    request.nextUrl.pathname.startsWith("/portfolio") ||
     request.nextUrl.pathname.startsWith("/satoshi-test") ||
     request.nextUrl.pathname.startsWith("/staking") ||
     request.nextUrl.pathname.startsWith("/send");
 
+  // Allow access if Supabase session exists (email login OR anonymous/wallet session)
   if (!user && isDashboard) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
