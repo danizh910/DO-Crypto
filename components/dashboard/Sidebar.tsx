@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, ShieldCheck, TrendingUp, Send,
+  LayoutDashboard, TrendingUp, Send,
   QrCode, Receipt, Settings, LogOut, Menu, X, Sparkles,
 } from "lucide-react";
 import { ConnectKitButton } from "connectkit";
@@ -13,14 +13,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const navItems = [
-  { href: "/portfolio",     label: "Portfolio",       icon: LayoutDashboard },
-  { href: "/transactions",  label: "Transaktionen",   icon: Receipt },
-  { href: "/send",          label: "Senden",          icon: Send },
-  { href: "/receive",       label: "Empfangen",       icon: QrCode },
-  { href: "/staking",       label: "Staking",         icon: TrendingUp },
-  { href: "/satoshi-test",  label: "Satoshi-Test",    icon: ShieldCheck },
-  { href: "/ai",            label: "KI-Mitarbeiter",  icon: Sparkles },
-  { href: "/settings",      label: "Einstellungen",   icon: Settings },
+  { href: "/portfolio",    label: "Portfolio",      icon: LayoutDashboard },
+  { href: "/transactions", label: "Transaktionen",  icon: Receipt },
+  { href: "/send",         label: "Senden",         icon: Send },
+  { href: "/receive",      label: "Empfangen",      icon: QrCode },
+  { href: "/staking",      label: "Staking",        icon: TrendingUp },
+  { href: "/ai",           label: "KI-Mitarbeiter", icon: Sparkles },
+  { href: "/settings",     label: "Einstellungen",  icon: Settings },
 ];
 
 function NavContent({ onClose }: { onClose?: () => void }) {
