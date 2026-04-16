@@ -4,16 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard,
-  ShieldCheck,
-  TrendingUp,
-  Send,
-  QrCode,
-  Receipt,
-  Settings,
-  LogOut,
-  Menu,
-  X,
+  LayoutDashboard, ShieldCheck, TrendingUp, Send,
+  QrCode, Receipt, Settings, LogOut, Menu, X, Sparkles,
 } from "lucide-react";
 import { ConnectKitButton } from "connectkit";
 import { createClient } from "@/lib/supabase/client";
@@ -21,13 +13,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const navItems = [
-  { href: "/portfolio",     label: "Portfolio",      icon: LayoutDashboard },
-  { href: "/transactions",  label: "Transaktionen",  icon: Receipt },
-  { href: "/send",          label: "Senden",         icon: Send },
-  { href: "/receive",       label: "Empfangen",      icon: QrCode },
-  { href: "/staking",       label: "Staking",        icon: TrendingUp },
-  { href: "/satoshi-test",  label: "Satoshi-Test",   icon: ShieldCheck },
-  { href: "/settings",      label: "Einstellungen",  icon: Settings },
+  { href: "/portfolio",     label: "Portfolio",       icon: LayoutDashboard },
+  { href: "/transactions",  label: "Transaktionen",   icon: Receipt },
+  { href: "/send",          label: "Senden",          icon: Send },
+  { href: "/receive",       label: "Empfangen",       icon: QrCode },
+  { href: "/staking",       label: "Staking",         icon: TrendingUp },
+  { href: "/satoshi-test",  label: "Satoshi-Test",    icon: ShieldCheck },
+  { href: "/ai",            label: "KI-Mitarbeiter",  icon: Sparkles },
+  { href: "/settings",      label: "Einstellungen",   icon: Settings },
 ];
 
 function NavContent({ onClose }: { onClose?: () => void }) {
@@ -43,14 +36,13 @@ function NavContent({ onClose }: { onClose?: () => void }) {
 
   return (
     <>
-      {/* Logo */}
       <div className="mb-8 px-2 flex items-center justify-between">
         <div>
           <span className="text-xl font-bold">
             <span className="text-primary">DO</span>
             <span className="text-foreground"> Crypto</span>
           </span>
-          <p className="text-muted-foreground text-xs mt-0.5">Testnet Banking</p>
+          <p className="text-muted-foreground text-xs mt-0.5">Banking Portal</p>
         </div>
         {onClose && (
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors md:hidden">
@@ -59,10 +51,9 @@ function NavContent({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 space-y-1">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          const active = pathname === href || (href !== "/portfolio" && pathname.startsWith(href));
           return (
             <Link key={href} href={href} onClick={onClose}>
               <motion.div
@@ -75,6 +66,12 @@ function NavContent({ onClose }: { onClose?: () => void }) {
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 {label}
+                {href === "/ai" && !active && (
+                  <span className="ml-auto flex items-center gap-1 text-xs text-success">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                    AI
+                  </span>
+                )}
                 {active && (
                   <motion.div
                     layoutId="sidebar-indicator"
@@ -87,7 +84,6 @@ function NavContent({ onClose }: { onClose?: () => void }) {
         })}
       </nav>
 
-      {/* Bottom */}
       <div className="space-y-3 pt-4 border-t border-white/5">
         <div className="flex justify-center">
           <ConnectKitButton />
@@ -115,10 +111,7 @@ export function Sidebar() {
           <span className="text-primary">DO</span>
           <span className="text-foreground"> Crypto</span>
         </span>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
+        <button onClick={() => setMobileOpen(true)} className="text-muted-foreground hover:text-foreground transition-colors">
           <Menu className="w-5 h-5" />
         </button>
       </div>
@@ -128,16 +121,12 @@ export function Sidebar() {
         {mobileOpen && (
           <>
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-40 bg-black/60 md:hidden"
               onClick={() => setMobileOpen(false)}
             />
             <motion.aside
-              initial={{ x: -280 }}
-              animate={{ x: 0 }}
-              exit={{ x: -280 }}
+              initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="fixed left-0 top-0 bottom-0 z-50 w-64 flex flex-col glass border-r border-white/5 px-4 py-6 md:hidden"
             >
