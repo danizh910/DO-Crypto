@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowUpRight, ArrowDownLeft, ExternalLink, Receipt, Search, Filter } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ExternalLink, Receipt, Search, Filter, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useAccount } from "wagmi";
 import type { Transaction } from "@/lib/supabase/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -13,26 +14,52 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function TransactionsPage() {
+  const { address, isConnected } = useAccount();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading]           = useState(true);
+  const [syncing, setSyncing]           = useState(false);
   const [search, setSearch]             = useState("");
   const [filter, setFilter]             = useState<"all" | "in" | "out">("all");
 
+  async function loadTransactions() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+    const { data } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setTransactions(data ?? []);
+    setLoading(false);
+  }
+
+  async function syncAndReload() {
+    if (!address || syncing) return;
+    setSyncing(true);
+    try {
+      await fetch("/api/transactions/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+    } catch { /* silent */ }
+    await loadTransactions();
+    setSyncing(false);
+  }
+
   useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      const { data } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      setTransactions(data ?? []);
-      setLoading(false);
-    }
-    load();
+    loadTransactions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-sync once when wallet connects
+  useEffect(() => {
+    if (isConnected && address) {
+      syncAndReload();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address]);
 
   const filtered = transactions.filter((tx) => {
     const matchesFilter = filter === "all" || tx.direction === filter;
@@ -50,11 +77,23 @@ export default function TransactionsPage() {
     <div className="max-w-4xl space-y-8">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-            <Receipt className="w-5 h-5 text-primary" />
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+              <Receipt className="w-5 h-5 text-primary" />
+            </div>
+            <h1 className="text-2xl font-semibold text-foreground">Transaktionen</h1>
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">Transaktionen</h1>
+          {isConnected && (
+            <button
+              onClick={syncAndReload}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg glass text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Synchronisiert…" : "Sync"}
+            </button>
+          )}
         </div>
         <p className="text-muted-foreground text-sm">Alle deine On-Chain Aktivitäten auf dem Sepolia Testnet.</p>
       </motion.div>
