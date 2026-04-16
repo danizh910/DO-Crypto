@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import OpenAI from "openai"; // Groq uses OpenAI-compatible SDK
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Mitarbeiter nicht gefunden" }, { status: 404 });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "OPENAI_API_KEY nicht konfiguriert" }, { status: 500 });
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ error: "GROQ_API_KEY nicht konfiguriert" }, { status: 500 });
     }
 
     // Get current user via Supabase
@@ -110,10 +110,13 @@ Datum: ${new Date().toLocaleDateString("de-CH", { day: "2-digit", month: "long",
       content: h.content,
     }));
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "llama-3.1-8b-instant",
       messages: [
         { role: "system", content: systemPrompt },
         ...historyMessages,
