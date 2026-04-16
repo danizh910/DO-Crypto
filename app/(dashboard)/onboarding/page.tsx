@@ -84,6 +84,9 @@ export default function OnboardingPage() {
     // Mark in profiles + user metadata
     await supabase.from("profiles").update({ onboarding_complete: true }).eq("id", user.id);
     await supabase.auth.updateUser({ data: { onboarding_complete: true } });
+    // Refresh session so middleware JWT contains updated metadata
+    await supabase.auth.refreshSession();
+    router.refresh();
     router.push("/portfolio");
   }
 
