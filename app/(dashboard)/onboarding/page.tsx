@@ -47,6 +47,7 @@ export default function OnboardingPage() {
 
   // Step 3 — Satoshi test
   const [challengeAmount, setChallengeAmount] = useState<string | null>(null);
+  const [challengeLoading, setChallengeLoading] = useState(false);
   const [walletId, setWalletId] = useState<string | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyMessage, setVerifyMessage] = useState<string>("");
@@ -87,20 +88,38 @@ export default function OnboardingPage() {
 
   // ── Step 3: generate challenge when entering step ───────────────────────────
   const generateChallenge = useCallback(async () => {
-    if (!walletAddress) return;
+    if (!walletAddress) {
+      setError("Wallet-Adresse nicht verfügbar. Bitte Seite neu laden.");
+      return;
+    }
     setError(null);
+    setChallengeLoading(true);
+    setChallengeAmount(null);
+    setWalletId(null);
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
       const res = await fetch("/api/kyc/challenge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ walletAddress }),
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Fehler"); return; }
+      if (!res.ok) {
+        setError(data.error ?? "Challenge konnte nicht generiert werden");
+        return;
+      }
       setChallengeAmount(data.challengeAmount);
       setWalletId(data.walletId);
-    } catch {
-      setError("Netzwerkfehler");
+    } catch (e) {
+      const msg = e instanceof Error && e.name === "AbortError"
+        ? "Timeout — Netzwerk zu langsam. Bitte erneut versuchen."
+        : "Netzwerkfehler beim Generieren der Challenge.";
+      setError(msg);
+    } finally {
+      setChallengeLoading(false);
     }
   }, [walletAddress]);
 
@@ -411,11 +430,32 @@ export default function OnboardingPage() {
                 kleine On-Chain Micro-Transaktion auf Sepolia Testnet.
               </div>
 
-              {!challengeAmount ? (
+              {challengeLoading && (
                 <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
                   <Loader2 className="w-4 h-4 animate-spin" /> Challenge wird generiert…
                 </div>
-              ) : (
+              )}
+
+              {!challengeLoading && error && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2.5">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    {error}
+                  </div>
+                  <button onClick={() => { setError(null); generateChallenge(); }}
+                    className="w-full flex items-center justify-center gap-2 py-3 border border-border text-muted-foreground rounded-xl hover:text-foreground transition-all text-sm">
+                    <RefreshCw className="w-4 h-4" /> Erneut versuchen
+                  </button>
+                </div>
+              )}
+
+              {!challengeLoading && !error && !challengeAmount && (
+                <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Vorbereitung…
+                </div>
+              )}
+
+              {!challengeLoading && challengeAmount && (
                 <>
                   {/* Challenge amount */}
                   <div className="rounded-xl bg-secondary/10 border border-secondary/20 p-4 space-y-1">
@@ -456,13 +496,6 @@ export default function OnboardingPage() {
                         ? <CheckCircle2 className="w-4 h-4 shrink-0" />
                         : <RefreshCw className="w-4 h-4 shrink-0" />}
                       {verifyMessage}
-                    </div>
-                  )}
-
-                  {error && (
-                    <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2.5">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      {error}
                     </div>
                   )}
 
