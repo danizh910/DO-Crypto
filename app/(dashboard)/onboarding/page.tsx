@@ -88,10 +88,8 @@ export default function OnboardingPage() {
 
   // ── Step 3: generate challenge when entering step ───────────────────────────
   const generateChallenge = useCallback(async () => {
-    if (!walletAddress) {
-      setError("Wallet-Adresse nicht verfügbar. Bitte Seite neu laden.");
-      return;
-    }
+    // Wait silently — the effect re-fires when walletAddress becomes available
+    if (!walletAddress) return;
     setError(null);
     setChallengeLoading(true);
     setChallengeAmount(null);
@@ -124,10 +122,10 @@ export default function OnboardingPage() {
   }, [walletAddress]);
 
   useEffect(() => {
-    if (step === 3 && !challengeAmount) {
+    if (step === 3 && !challengeAmount && !challengeLoading && walletAddress) {
       generateChallenge();
     }
-  }, [step, challengeAmount, generateChallenge]);
+  }, [step, challengeAmount, challengeLoading, walletAddress, generateChallenge]);
 
   // Auto-poll for verification every 15 seconds while on step 3
   const checkVerification = useCallback(async () => {
@@ -450,8 +448,17 @@ export default function OnboardingPage() {
               )}
 
               {!challengeLoading && !error && !challengeAmount && (
-                <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Vorbereitung…
+                <div className="flex flex-col items-center gap-3 py-6">
+                  {walletAddress
+                    ? <div className="flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Vorbereitung…</div>
+                    : <div className="flex flex-col items-center gap-2 text-center">
+                        <p className="text-sm text-muted-foreground">Wallet nicht erkannt.</p>
+                        <button onClick={() => setStep(1)}
+                          className="text-xs text-primary hover:underline">
+                          Zurück zu Schritt 1 →
+                        </button>
+                      </div>
+                  }
                 </div>
               )}
 
