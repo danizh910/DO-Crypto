@@ -38,7 +38,7 @@ export async function GET() {
         .gte("created_at", new Date(Date.now() - 86400000).toISOString()),
       db.from("staking_positions").select("*", { count: "exact", head: true }).eq("status", "active"),
       db.from("profiles").select(
-        "id, first_name, last_name, onboarding_complete, created_at, nationality, city, country"
+        "id, first_name, last_name, onboarding_complete, created_at, nationality, city, country, phone, address_line, postal_code, date_of_birth"
       ).order("created_at", { ascending: false }).limit(100),
       db.from("transactions").select("*").order("created_at", { ascending: false }).limit(20),
       db.from("transactions").select("amount, direction").eq("status", "confirmed"),
@@ -60,7 +60,7 @@ export async function GET() {
     );
 
     // Enrich customers with wallet status
-    type RawCustomer = { id: string; first_name?: string; last_name?: string; onboarding_complete: boolean; created_at: string; nationality?: string; city?: string };
+    type RawCustomer = { id: string; first_name?: string; last_name?: string; onboarding_complete: boolean; created_at: string; nationality?: string; city?: string; country?: string; phone?: string; address_line?: string; postal_code?: string; date_of_birth?: string };
     const enrichedCustomers = (customers ?? [] as RawCustomer[]).map((c: RawCustomer) => ({
       ...c,
       wallet_verified: walletMap.get(c.id) ?? false,

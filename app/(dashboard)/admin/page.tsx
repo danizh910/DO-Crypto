@@ -6,13 +6,14 @@ import {
   Shield, RefreshCw, Send, Loader2, Bot, Activity,
   Users, AlertTriangle, BookOpen, TrendingUp,
   CheckCircle2, XCircle, Clock, ArrowUpRight, ArrowDownLeft,
-  BarChart3, Layers, Zap, ChevronDown, ChevronRight,
+  BarChart3, Layers, Zap, ChevronDown, X,
+  Eye, Play, Filter,
 } from "lucide-react";
 import { AGENT_REGISTRY } from "@/lib/agents/agent_registry";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-interface AgentLog  { id: string; agent_id: string; agent_name: string; agent_level: number; action: string; status: string; created_at: string; }
-interface Customer  { id: string; first_name?: string; last_name?: string; onboarding_complete: boolean; created_at: string; nationality?: string; city?: string; wallet_verified: boolean; }
+interface AgentLog  { id: string; agent_id: string; agent_name: string; agent_level: number; action: string; status: string; metadata?: Record<string, unknown>; created_at: string; }
+interface Customer  { id: string; first_name?: string; last_name?: string; onboarding_complete: boolean; created_at: string; nationality?: string; city?: string; country?: string; phone?: string; address_line?: string; postal_code?: string; date_of_birth?: string; wallet_verified: boolean; }
 interface TxRow     { id: string; user_id: string; amount: string; token: string; direction: "in"|"out"; status: string; tx_hash?: string; created_at: string; }
 interface OverviewData {
   stats: { totalUsers: number; pendingKyc: number; txToday: number; activeStaking: number; totalVolume: string; totalSwaps: number; };
@@ -21,7 +22,7 @@ interface OverviewData {
   largeTx: TxRow[];
   stakingByProtocol: Record<string, { count: number; totalETH: number }>;
 }
-type Tab = "overview" | "agents" | "customers" | "compliance" | "docs";
+type Tab = "overview" | "agents" | "customers" | "compliance" | "monitoring" | "docs";
 
 // ── Docs content ──────────────────────────────────────────────────────────────
 const DOCS = [
@@ -115,6 +116,16 @@ export default function AdminPage() {
   // Docs
   const [openDoc, setOpenDoc] = useState<number | null>(null);
 
+  // Customer detail modal
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+
+  // Monitoring — agent force trigger
+  const [forceAgent, setForceAgent] = useState("aria");
+  const [forceTask, setForceTask] = useState("");
+  const [forceResult, setForceResult] = useState<string | null>(null);
+  const [forceLoading, setForceLoading] = useState(false);
+  const [logFilter, setLogFilter] = useState<string>("all");
+
   const fetchOverview = useCallback(async () => {
     setOvLoading(true);
     try {
@@ -137,14 +148,33 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => { fetchOverview(); }, [fetchOverview]);
-  useEffect(() => { if (tab === "agents") fetchAgents(); }, [tab, fetchAgents]);
+  useEffect(() => { if (tab === "agents" || tab === "monitoring") fetchAgents(); }, [tab, fetchAgents]);
 
-  // Auto-refresh agents tab every 8s when active
+  // Auto-refresh agents/monitoring tab every 8s when active
   useEffect(() => {
-    if (tab !== "agents") return;
+    if (tab !== "agents" && tab !== "monitoring") return;
     const id = setInterval(fetchAgents, 8000);
     return () => clearInterval(id);
   }, [tab, fetchAgents]);
+
+  async function forceAgentTask() {
+    if (!forceTask.trim() || forceLoading) return;
+    setForceLoading(true);
+    setForceResult(null);
+    try {
+      const res = await fetch("/api/agents/groq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId: forceAgent, message: forceTask, history: [] }),
+      });
+      const data = await res.json();
+      setForceResult(res.ok ? data.response : `Fehler: ${data.error}`);
+      fetchAgents();
+    } catch {
+      setForceResult("Netzwerkfehler");
+    }
+    setForceLoading(false);
+  }
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -196,11 +226,84 @@ export default function AdminPage() {
     { id: "agents",      label: "KI-Belegschaft", icon: Bot },
     { id: "customers",   label: "Kunden",         icon: Users },
     { id: "compliance",  label: "Compliance",     icon: AlertTriangle },
+    { id: "monitoring",  label: "Monitoring",     icon: Activity },
     { id: "docs",        label: "Dokumentation",  icon: BookOpen },
   ];
 
   return (
     <div className="max-w-7xl space-y-6">
+
+      {/* ── Customer detail modal ─────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {selectedCustomer && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/70" onClick={() => setSelectedCustomer(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="glass rounded-2xl p-6 w-full max-w-lg space-y-5 border border-white/10 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
+                      {(selectedCustomer.first_name?.[0] ?? "?")}{(selectedCustomer.last_name?.[0] ?? "?")}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {selectedCustomer.first_name && selectedCustomer.last_name
+                          ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}`
+                          : "Unbekannter Nutzer"}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono">{selectedCustomer.id.slice(0, 20)}…</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedCustomer(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "KYC-Status", value: selectedCustomer.onboarding_complete ? "Abgeschlossen" : "Ausstehend", ok: selectedCustomer.onboarding_complete },
+                    { label: "Wallet", value: selectedCustomer.wallet_verified ? "Verifiziert" : "Nicht verifiziert", ok: selectedCustomer.wallet_verified },
+                  ].map(({ label, value, ok }) => (
+                    <div key={label} className="bg-white/5 rounded-xl p-3">
+                      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                      <p className={`text-sm font-semibold flex items-center gap-1 ${ok ? "text-success" : "text-yellow-400"}`}>
+                        {ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                        {value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  {[
+                    { label: "Vorname", value: selectedCustomer.first_name },
+                    { label: "Nachname", value: selectedCustomer.last_name },
+                    { label: "Geburtsdatum", value: selectedCustomer.date_of_birth },
+                    { label: "Nationalität", value: selectedCustomer.nationality },
+                    { label: "Land", value: selectedCustomer.country },
+                    { label: "Stadt", value: selectedCustomer.city },
+                    { label: "PLZ", value: selectedCustomer.postal_code },
+                    { label: "Adresse", value: selectedCustomer.address_line },
+                    { label: "Telefon", value: selectedCustomer.phone },
+                    { label: "Registriert", value: new Date(selectedCustomer.created_at).toLocaleDateString("de-CH") },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center justify-between border-b border-white/5 pb-2">
+                      <span className="text-muted-foreground text-xs">{label}</span>
+                      <span className="text-foreground text-xs font-medium">{value ?? "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between">
@@ -483,11 +586,13 @@ export default function AdminPage() {
                       <th className="text-left px-4 py-3 font-medium">Wallet</th>
                       <th className="text-left px-4 py-3 font-medium">Land</th>
                       <th className="text-left px-4 py-3 font-medium">Seit</th>
+                      <th className="text-left px-4 py-3 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {(overview?.customers ?? []).map((c) => (
-                      <tr key={c.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
+                      <tr key={c.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                        onClick={() => setSelectedCustomer(c)}>
                         <td className="px-4 py-3 font-medium text-foreground">
                           {c.first_name && c.last_name ? `${c.first_name} ${c.last_name}` : <span className="text-muted-foreground italic">Unbekannt</span>}
                         </td>
@@ -505,10 +610,13 @@ export default function AdminPage() {
                         <td className="px-4 py-3 text-muted-foreground text-xs">
                           {new Date(c.created_at).toLocaleDateString("de-CH")}
                         </td>
+                        <td className="px-4 py-3">
+                          <Eye className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                        </td>
                       </tr>
                     ))}
                     {!overview?.customers.length && (
-                      <tr><td colSpan={5} className="text-center py-8 text-muted-foreground text-xs">Keine Kunden</td></tr>
+                      <tr><td colSpan={6} className="text-center py-8 text-muted-foreground text-xs">Keine Kunden</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -585,6 +693,105 @@ export default function AdminPage() {
           </motion.div>
         )}
 
+        {/* ── MONITORING TAB ──────────────────────────────────────────────── */}
+        {tab === "monitoring" && (
+          <motion.div key="monitoring" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+
+            {/* Force trigger */}
+            <div className="glass rounded-2xl p-5 space-y-4">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Play className="w-4 h-4 text-primary" /> Agent forcieren
+              </h3>
+              <div className="flex gap-3">
+                <select value={forceAgent} onChange={(e) => setForceAgent(e.target.value)}
+                  className="w-36 bg-card border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50">
+                  {Object.values(AGENT_REGISTRY).map(a => (
+                    <option key={a.id} value={a.id} className="bg-card">{a.name}</option>
+                  ))}
+                </select>
+                <input value={forceTask} onChange={(e) => setForceTask(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && forceAgentTask()}
+                  placeholder="Aufgabe eingeben…"
+                  className="flex-1 bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors" />
+                <button onClick={forceAgentTask} disabled={forceLoading || !forceTask.trim()}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-primary/20 text-primary rounded-xl hover:bg-primary/30 disabled:opacity-40 transition-colors text-sm font-medium whitespace-nowrap">
+                  {forceLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                  Ausführen
+                </button>
+              </div>
+              {forceResult && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                  <p className="text-xs text-primary font-medium mb-2">{AGENT_REGISTRY[forceAgent]?.name ?? forceAgent} — Ergebnis</p>
+                  {forceResult}
+                </motion.div>
+              )}
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: "Aktive Agenten", value: Object.values(AGENT_REGISTRY).filter(a => agentLiveStatus(a.id) === "active").length },
+                { label: "Logs (gesamt)", value: logs.length },
+                { label: "Abgeschlossen", value: logs.filter(l => l.status === "completed").length },
+                { label: "Laufend", value: logs.filter(l => l.status === "running").length },
+              ].map(({ label, value }) => (
+                <div key={label} className="glass rounded-xl p-4">
+                  <p className="text-xl font-bold text-foreground">{value}</p>
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Log table with filter */}
+            <div className="glass rounded-2xl overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-success" />
+                  <span className="text-sm font-semibold text-foreground">Agent-Logs</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+                  <select value={logFilter} onChange={(e) => setLogFilter(e.target.value)}
+                    className="text-xs bg-transparent text-muted-foreground focus:outline-none border border-white/10 rounded-lg px-2 py-1">
+                    <option value="all">Alle</option>
+                    {Object.keys(AGENT_REGISTRY).map(id => (
+                      <option key={id} value={id}>{AGENT_REGISTRY[id].name}</option>
+                    ))}
+                  </select>
+                  <button onClick={fetchAgents} className="text-muted-foreground hover:text-foreground">
+                    <RefreshCw className={`w-3.5 h-3.5 ${agLoading ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+              </div>
+              <div className="divide-y divide-white/5 max-h-96 overflow-y-auto">
+                {(logFilter === "all" ? logs : logs.filter(l => l.agent_id === logFilter)).map((log) => (
+                  <div key={log.id} className="flex items-start gap-3 px-4 py-3 text-xs hover:bg-white/[0.02] transition-colors">
+                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                      log.status === "completed" ? "bg-success" : log.status === "running" ? "bg-primary animate-pulse" : "bg-destructive"
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-primary font-medium">{log.agent_name}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-xs ${
+                          log.status === "completed" ? "bg-success/10 text-success" : log.status === "running" ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                        }`}>{log.status}</span>
+                        <span className="text-muted-foreground/60 ml-auto shrink-0">
+                          {new Date(log.created_at).toLocaleString("de-CH")}
+                        </span>
+                      </div>
+                      <p className="text-foreground/80 truncate">{log.action}</p>
+                    </div>
+                  </div>
+                ))}
+                {logs.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-8">Noch keine Logs</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── DOCS TAB ────────────────────────────────────────────────────── */}
         {tab === "docs" && (
           <motion.div key="docs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
@@ -621,13 +828,13 @@ export default function AdminPage() {
             ))}
             <div className="glass rounded-xl p-5 border border-primary/10">
               <div className="flex items-center gap-2 mb-2">
-                <ChevronRight className="w-4 h-4 text-primary" />
+                <Activity className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold text-foreground">Agent Monitoring</span>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">Vollständige Log-Tabelle mit Filtern und manuellem Agent-Trigger</p>
-              <a href="/admin/agents" className="text-xs text-primary hover:underline">
-                → Zur Agent-Monitoring-Seite
-              </a>
+              <p className="text-xs text-muted-foreground mb-3">Log-Tabelle, Filter und manueller Agent-Trigger sind im Tab &quot;Monitoring&quot; verfügbar.</p>
+              <button onClick={() => setTab("monitoring")} className="text-xs text-primary hover:underline">
+                → Zum Monitoring
+              </button>
             </div>
           </motion.div>
         )}
