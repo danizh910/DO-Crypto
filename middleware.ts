@@ -37,7 +37,9 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/receive") ||
     path.startsWith("/transactions") ||
     path.startsWith("/settings") ||
-    path.startsWith("/ai");
+    path.startsWith("/ai") ||
+    path.startsWith("/swap") ||
+    path.startsWith("/buy");
 
   const isOnboarding = path.startsWith("/onboarding");
   const isAdmin = path.startsWith("/admin");
@@ -85,5 +87,7 @@ export const config = {
     "/ai/:path*",
     "/onboarding/:path*",
     "/admin/:path*",
+    "/swap/:path*",
+    "/buy/:path*",
   ],
 };

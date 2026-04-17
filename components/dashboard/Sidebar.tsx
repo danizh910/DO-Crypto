@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, TrendingUp, Send,
   QrCode, Receipt, Settings, LogOut, Menu, X, Sparkles, Shield,
+  ArrowUpDown, ShoppingCart,
 } from "lucide-react";
 import { ConnectKitButton } from "connectkit";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +20,8 @@ const navItems = [
   { href: "/transactions", label: "Transaktionen",  icon: Receipt },
   { href: "/send",         label: "Senden",         icon: Send },
   { href: "/receive",      label: "Empfangen",      icon: QrCode },
+  { href: "/buy",          label: "Kaufen",         icon: ShoppingCart },
+  { href: "/swap",         label: "Swap",           icon: ArrowUpDown },
   { href: "/staking",      label: "Staking",        icon: TrendingUp },
   { href: "/ai",           label: "KI-Mitarbeiter", icon: Sparkles },
   { href: "/settings",     label: "Einstellungen",  icon: Settings },

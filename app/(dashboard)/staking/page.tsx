@@ -169,39 +169,24 @@ export default function StakingPage() {
     setUnstaking(position.id);
     setError(null);
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setUnstaking(null); return; }
-
-    const rewards     = calcRewards(position);
-    const totalReturn = parseFloat(position.amount) + rewards;
-
-    // Mark as unstaked
-    const { error: updateErr } = await supabase
-      .from("staking_positions")
-      .update({ status: "unstaked" })
-      .eq("id", position.id)
-      .eq("user_id", user.id);
-
-    if (updateErr) {
-      setError("Fehler beim Entstaken: " + updateErr.message);
-      setUnstaking(null);
-      return;
+    try {
+      const res = await fetch("/api/staking/unstake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ positionId: position.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError("Fehler beim Entstaken: " + (data.error ?? "Unbekannt"));
+        setUnstaking(null);
+        return;
+      }
+      setJustUnstaked(position.id);
+      await loadPositions();
+      setTimeout(() => setJustUnstaked(null), 3000);
+    } catch {
+      setError("Netzwerkfehler beim Entstaken");
     }
-
-    // Record the return as an incoming transaction
-    await supabase.from("transactions").insert({
-      user_id: user.id,
-      amount: totalReturn.toFixed(8),
-      token: "ETH",
-      chain_id: 11155111,
-      direction: "in",
-      status: "confirmed",
-    });
-
-    setJustUnstaked(position.id);
-    await loadPositions();
-    setTimeout(() => setJustUnstaked(null), 3000);
     setUnstaking(null);
   }
 
