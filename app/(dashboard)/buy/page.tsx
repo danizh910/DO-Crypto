@@ -10,10 +10,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 
 const TOKENS = [
-  { id: "ethereum",  symbol: "ETH",  name: "Ethereum",  icon: "Ξ"  },
-  { id: "bitcoin",   symbol: "BTC",  name: "Bitcoin",   icon: "₿"  },
-  { id: "chainlink", symbol: "LINK", name: "Chainlink", icon: "⬡"  },
-  { id: "uniswap",   symbol: "UNI",  name: "Uniswap",   icon: "🦄" },
+  { id: "ethereum",  symbol: "ETH",  name: "Ethereum",  logo: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",         fallback: "Ξ"  },
+  { id: "bitcoin",   symbol: "BTC",  name: "Bitcoin",   logo: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png",            fallback: "₿"  },
+  { id: "chainlink", symbol: "LINK", name: "Chainlink", logo: "https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png", fallback: "⬡" },
+  { id: "uniswap",   symbol: "UNI",  name: "Uniswap",   logo: "https://assets.coingecko.com/coins/images/12504/small/uni.jpg",            fallback: "🦄" },
 ];
 
 const FIAT = ["CHF", "EUR", "USD"];
@@ -166,7 +166,19 @@ export default function BuyPage() {
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{token.icon}</span>
+                  <img
+                    src={token.logo}
+                    alt={token.symbol}
+                    width={24}
+                    height={24}
+                    className="w-6 h-6 rounded-full"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                      const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                      if (next) next.style.display = "inline";
+                    }}
+                  />
+                  <span className="hidden text-lg">{token.fallback}</span>
                   <span className="text-sm font-semibold text-foreground">{token.symbol}</span>
                 </div>
                 {selected && <div className="w-2 h-2 rounded-full bg-primary" />}

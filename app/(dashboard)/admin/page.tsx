@@ -7,16 +7,23 @@ import {
   Users, AlertTriangle, BookOpen, TrendingUp,
   CheckCircle2, XCircle, Clock, ArrowUpRight, ArrowDownLeft,
   BarChart3, Layers, Zap, ChevronDown, X,
-  Eye, Play, Filter,
+  Eye, Play, Filter, Lock, DollarSign, UserCheck,
+  ArrowRight, Wallet,
 } from "lucide-react";
 import { AGENT_REGISTRY } from "@/lib/agents/agent_registry";
+import MarkdownMessage from "@/components/ui/MarkdownMessage";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AgentLog  { id: string; agent_id: string; agent_name: string; agent_level: number; action: string; status: string; metadata?: Record<string, unknown>; created_at: string; }
 interface Customer  { id: string; first_name?: string; last_name?: string; onboarding_complete: boolean; created_at: string; nationality?: string; city?: string; country?: string; phone?: string; address_line?: string; postal_code?: string; date_of_birth?: string; wallet_verified: boolean; }
 interface TxRow     { id: string; user_id: string; amount: string; token: string; direction: "in"|"out"; status: string; tx_hash?: string; created_at: string; }
 interface OverviewData {
-  stats: { totalUsers: number; pendingKyc: number; txToday: number; activeStaking: number; totalVolume: string; totalSwaps: number; };
+  stats: {
+    totalUsers: number; pendingKyc: number; completedKyc: number; txToday: number;
+    activeStaking: number; totalVolume: string; totalSwaps: number;
+    verifiedWallets: number; activeTraders: number;
+  };
+  purchaseRevenue: { totalChf: number; totalEur: number; totalUsd: number; count: number; };
   customers: Customer[];
   recentTx: TxRow[];
   largeTx: TxRow[];
@@ -24,7 +31,9 @@ interface OverviewData {
 }
 type Tab = "overview" | "agents" | "customers" | "compliance" | "monitoring" | "docs";
 
-// ── Docs content ──────────────────────────────────────────────────────────────
+const ADMIN_PASSWORD = "Password123.";
+
+// ── Docs ──────────────────────────────────────────────────────────────────────
 const DOCS = [
   {
     title: "KYC / Satoshi-Test Prozess",
@@ -87,44 +96,118 @@ Delegation: ARIA erkennt Keywords und loggt Worker-Tasks in agent_logs.`,
 • transactions — On-Chain TX-History (direction: in/out)
 • staking_positions — DeFi-Positionen (status: active/unstaked)
 • swap_transactions — Token-Swaps
-• purchase_transactions — Krypto-Käufe
+• purchase_transactions — Krypto-Käufe (fiat_amount, fiat_currency)
 • ai_conversations — Agent-Gedächtnis (employee_id, role, content)
 • agent_logs — Agent-Aktivitätslogs (für Admin-Board)
 • notifications — Nutzer-Benachrichtigungen`,
   },
 ];
 
+// ── Password Gate ─────────────────────────────────────────────────────────────
+function PasswordGate({ onAuth }: { onAuth: () => void }) {
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState(false);
+  const [shaking, setShaking] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw === ADMIN_PASSWORD) {
+      sessionStorage.setItem("admin_pw_auth", "yes");
+      onAuth();
+    } else {
+      setErr(true);
+      setPw("");
+      setShaking(true);
+      setTimeout(() => setShaking(false), 600);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+      <motion.div
+        animate={shaking ? { x: [-8, 8, -6, 6, -4, 4, 0] } : { x: 0 }}
+        transition={{ duration: 0.5 }}
+        className="glass rounded-2xl p-8 w-full max-w-sm border border-white/10 space-y-6"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Lock className="w-6 h-6 text-primary" />
+          </div>
+          <div className="text-center">
+            <h2 className="text-lg font-bold text-foreground">Admin-Zugang</h2>
+            <p className="text-sm text-muted-foreground mt-1">DO Crypto Bank · Sicherheitsbereich</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground font-medium">Admin-Passwort</label>
+            <input
+              ref={inputRef}
+              type="password"
+              value={pw}
+              onChange={(e) => { setPw(e.target.value); setErr(false); }}
+              placeholder="••••••••••"
+              className={`w-full bg-card border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors ${
+                err ? "border-destructive/60 focus:border-destructive" : "border-border focus:border-primary/50"
+              }`}
+            />
+            {err && (
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-destructive flex items-center gap-1">
+                <XCircle className="w-3.5 h-3.5" /> Falsches Passwort
+              </motion.p>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={!pw}
+            className="w-full py-3 bg-primary text-background font-semibold rounded-xl text-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+          >
+            <Shield className="w-4 h-4" /> Zugang bestätigen
+          </button>
+        </form>
+
+        <p className="text-xs text-muted-foreground text-center opacity-60">
+          Nur für autorisierte Administratoren
+        </p>
+      </motion.div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AdminPage() {
+  const [authed, setAuthed] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
 
-  // Overview data
   const [overview, setOverview]   = useState<OverviewData | null>(null);
   const [ovLoading, setOvLoading] = useState(false);
 
-  // Agents data
   const [logs, setLogs]           = useState<AgentLog[]>([]);
   const [agLoading, setAgLoading] = useState(false);
 
-  // ARIA chat
-  const [message, setMessage]       = useState("");
+  const [message, setMessage]         = useState("");
   const [chatHistory, setChatHistory] = useState<Array<{ role: string; content: string; agent?: string }>>([]);
   const [sending, setSending]         = useState(false);
   const [activeAgent, setActiveAgent] = useState("aria");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Docs
   const [openDoc, setOpenDoc] = useState<number | null>(null);
-
-  // Customer detail modal
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-  // Monitoring — agent force trigger
-  const [forceAgent, setForceAgent] = useState("aria");
-  const [forceTask, setForceTask] = useState("");
+  const [forceAgent, setForceAgent]   = useState("aria");
+  const [forceTask, setForceTask]     = useState("");
   const [forceResult, setForceResult] = useState<string | null>(null);
   const [forceLoading, setForceLoading] = useState(false);
-  const [logFilter, setLogFilter] = useState<string>("all");
+  const [logFilter, setLogFilter]     = useState<string>("all");
+
+  // Check auth on mount
+  useEffect(() => {
+    setAuthed(sessionStorage.getItem("admin_pw_auth") === "yes");
+  }, []);
 
   const fetchOverview = useCallback(async () => {
     setOvLoading(true);
@@ -147,34 +230,14 @@ export default function AdminPage() {
     setAgLoading(false);
   }, []);
 
-  useEffect(() => { fetchOverview(); }, [fetchOverview]);
-  useEffect(() => { if (tab === "agents" || tab === "monitoring") fetchAgents(); }, [tab, fetchAgents]);
+  useEffect(() => { if (authed) fetchOverview(); }, [authed, fetchOverview]);
+  useEffect(() => { if (authed && (tab === "agents" || tab === "monitoring")) fetchAgents(); }, [authed, tab, fetchAgents]);
 
-  // Auto-refresh agents/monitoring tab every 8s when active
   useEffect(() => {
     if (tab !== "agents" && tab !== "monitoring") return;
     const id = setInterval(fetchAgents, 8000);
     return () => clearInterval(id);
   }, [tab, fetchAgents]);
-
-  async function forceAgentTask() {
-    if (!forceTask.trim() || forceLoading) return;
-    setForceLoading(true);
-    setForceResult(null);
-    try {
-      const res = await fetch("/api/agents/groq", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId: forceAgent, message: forceTask, history: [] }),
-      });
-      const data = await res.json();
-      setForceResult(res.ok ? data.response : `Fehler: ${data.error}`);
-      fetchAgents();
-    } catch {
-      setForceResult("Netzwerkfehler");
-    }
-    setForceLoading(false);
-  }
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -219,6 +282,25 @@ export default function AdminPage() {
     setSending(false);
   }
 
+  async function forceAgentTask() {
+    if (!forceTask.trim() || forceLoading) return;
+    setForceLoading(true);
+    setForceResult(null);
+    try {
+      const res = await fetch("/api/agents/groq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId: forceAgent, message: forceTask, history: [] }),
+      });
+      const data = await res.json();
+      setForceResult(res.ok ? data.response : `Fehler: ${data.error}`);
+      fetchAgents();
+    } catch {
+      setForceResult("Netzwerkfehler");
+    }
+    setForceLoading(false);
+  }
+
   const workers = ["compliance", "market", "risk", "support"].map(id => AGENT_REGISTRY[id]);
 
   const TABS: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
@@ -229,6 +311,10 @@ export default function AdminPage() {
     { id: "monitoring",  label: "Monitoring",     icon: Activity },
     { id: "docs",        label: "Dokumentation",  icon: BookOpen },
   ];
+
+  // ── Gate ──────────────────────────────────────────────────────────────────
+  if (authed === null) return null;
+  if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -281,16 +367,16 @@ export default function AdminPage() {
 
                 <div className="space-y-2 text-sm">
                   {[
-                    { label: "Vorname", value: selectedCustomer.first_name },
-                    { label: "Nachname", value: selectedCustomer.last_name },
+                    { label: "Vorname",      value: selectedCustomer.first_name },
+                    { label: "Nachname",     value: selectedCustomer.last_name },
                     { label: "Geburtsdatum", value: selectedCustomer.date_of_birth },
                     { label: "Nationalität", value: selectedCustomer.nationality },
-                    { label: "Land", value: selectedCustomer.country },
-                    { label: "Stadt", value: selectedCustomer.city },
-                    { label: "PLZ", value: selectedCustomer.postal_code },
-                    { label: "Adresse", value: selectedCustomer.address_line },
-                    { label: "Telefon", value: selectedCustomer.phone },
-                    { label: "Registriert", value: new Date(selectedCustomer.created_at).toLocaleDateString("de-CH") },
+                    { label: "Land",         value: selectedCustomer.country },
+                    { label: "Stadt",        value: selectedCustomer.city },
+                    { label: "PLZ",          value: selectedCustomer.postal_code },
+                    { label: "Adresse",      value: selectedCustomer.address_line },
+                    { label: "Telefon",      value: selectedCustomer.phone },
+                    { label: "Registriert",  value: new Date(selectedCustomer.created_at).toLocaleDateString("de-CH") },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex items-center justify-between border-b border-white/5 pb-2">
                       <span className="text-muted-foreground text-xs">{label}</span>
@@ -316,18 +402,26 @@ export default function AdminPage() {
             <p className="text-muted-foreground text-xs">DO Crypto Bank — Vollständige Übersicht</p>
           </div>
         </div>
-        <button onClick={() => { fetchOverview(); if (tab === "agents") fetchAgents(); }}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 transition-colors">
-          <RefreshCw className={`w-3.5 h-3.5 ${ovLoading || agLoading ? "animate-spin" : ""}`} />
-          Aktualisieren
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { sessionStorage.removeItem("admin_pw_auth"); setAuthed(false); }}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive border border-border rounded-lg px-3 py-1.5 transition-colors"
+          >
+            <Lock className="w-3.5 h-3.5" /> Sperren
+          </button>
+          <button onClick={() => { fetchOverview(); if (tab === "agents" || tab === "monitoring") fetchAgents(); }}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg px-3 py-1.5 transition-colors">
+            <RefreshCw className={`w-3.5 h-3.5 ${ovLoading || agLoading ? "animate-spin" : ""}`} />
+            Aktualisieren
+          </button>
+        </div>
       </motion.div>
 
       {/* Tab navigation */}
-      <div className="flex items-center gap-1 p-1 glass rounded-xl w-fit">
+      <div className="flex items-center gap-1 p-1 glass rounded-xl overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
               tab === id ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
             }`}>
             <Icon className="w-3.5 h-3.5" />
@@ -336,19 +430,82 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {/* ── ÜBERSICHT TAB ─────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
+
+        {/* ── ÜBERSICHT TAB ─────────────────────────────────────────────────── */}
         {tab === "overview" && (
           <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+
+            {/* Revenue Banner */}
+            {overview?.purchaseRevenue && overview.purchaseRevenue.count > 0 && (
+              <div className="glass rounded-2xl p-5 border border-success/20 bg-success/[0.03]">
+                <div className="flex items-center gap-2 mb-3">
+                  <DollarSign className="w-4 h-4 text-success" />
+                  <span className="text-sm font-semibold text-foreground">Kaufvolumen (simuliert)</span>
+                  <span className="ml-auto text-xs text-muted-foreground">{overview.purchaseRevenue.count} Käufe</span>
+                </div>
+                <div className="flex items-end gap-6">
+                  {overview.purchaseRevenue.totalChf > 0 && (
+                    <div>
+                      <p className="text-2xl font-bold text-success">
+                        CHF {overview.purchaseRevenue.totalChf.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Schweizer Franken</p>
+                    </div>
+                  )}
+                  {overview.purchaseRevenue.totalEur > 0 && (
+                    <div>
+                      <p className="text-xl font-bold text-foreground/70">
+                        € {overview.purchaseRevenue.totalEur.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Euro</p>
+                    </div>
+                  )}
+                  {overview.purchaseRevenue.totalUsd > 0 && (
+                    <div>
+                      <p className="text-xl font-bold text-foreground/70">
+                        $ {overview.purchaseRevenue.totalUsd.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">US-Dollar</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* User Funnel */}
+            <div className="glass rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <UserCheck className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">Nutzer-Funnel</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {[
+                  { label: "Registriert",      value: overview?.stats.totalUsers       ?? "—", color: "text-foreground",  bg: "bg-white/5" },
+                  { label: "KYC abgeschlossen", value: overview?.stats.completedKyc     ?? "—", color: "text-primary",    bg: "bg-primary/5" },
+                  { label: "Wallet verifiziert",value: overview?.stats.verifiedWallets  ?? "—", color: "text-secondary",  bg: "bg-secondary/5" },
+                  { label: "Handeln aktiv",     value: overview?.stats.activeTraders    ?? "—", color: "text-success",    bg: "bg-success/5" },
+                ].map((step, idx, arr) => (
+                  <div key={step.label} className="flex items-center gap-2">
+                    <div className={`rounded-xl px-4 py-3 ${step.bg} border border-white/5`}>
+                      <p className={`text-xl font-bold ${step.color}`}>{String(step.value)}</p>
+                      <p className="text-xs text-muted-foreground">{step.label}</p>
+                    </div>
+                    {idx < arr.length - 1 && <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* KPI grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {[
-                { label: "Kunden",         value: overview?.stats.totalUsers    ?? "—", icon: Users,       color: "text-primary" },
-                { label: "Offenes KYC",    value: overview?.stats.pendingKyc    ?? "—", icon: AlertTriangle, color: "text-yellow-400" },
-                { label: "TX Heute",       value: overview?.stats.txToday       ?? "—", icon: Activity,    color: "text-success" },
-                { label: "Aktive Stakings",value: overview?.stats.activeStaking ?? "—", icon: Layers,      color: "text-secondary" },
-                { label: "Gesamt Volumen", value: overview ? `${overview.stats.totalVolume} ETH` : "—", icon: TrendingUp, color: "text-success" },
-                { label: "Swaps",          value: overview?.stats.totalSwaps    ?? "—", icon: Zap,         color: "text-primary" },
+                { label: "TX Heute",        value: overview?.stats.txToday       ?? "—", icon: Activity,     color: "text-success" },
+                { label: "Aktive Stakings", value: overview?.stats.activeStaking ?? "—", icon: Layers,       color: "text-secondary" },
+                { label: "ETH Volumen",     value: overview ? `${overview.stats.totalVolume}` : "—", icon: TrendingUp,   color: "text-primary" },
+                { label: "Swaps gesamt",    value: overview?.stats.totalSwaps    ?? "—", icon: Zap,          color: "text-primary" },
+                { label: "Offenes KYC",     value: overview?.stats.pendingKyc    ?? "—", icon: AlertTriangle, color: "text-yellow-400" },
+                { label: "Käufe gesamt",    value: overview?.purchaseRevenue?.count ?? "—", icon: DollarSign, color: "text-success" },
               ].map(({ label, value, icon: Icon, color }) => (
                 <div key={label} className="glass rounded-xl p-4">
                   <Icon className={`w-4 h-4 ${color} mb-2`} />
@@ -375,9 +532,7 @@ export default function AdminPage() {
                           : <ArrowUpRight className="w-3.5 h-3.5 text-destructive" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground truncate font-mono">
-                          {tx.user_id.slice(0, 12)}…
-                        </p>
+                        <p className="text-xs text-muted-foreground truncate font-mono">{tx.user_id.slice(0, 12)}…</p>
                       </div>
                       <span className={`text-xs font-medium ${tx.direction === "in" ? "text-success" : "text-destructive"}`}>
                         {tx.direction === "in" ? "+" : "-"}{parseFloat(tx.amount).toFixed(4)} {tx.token}
@@ -449,7 +604,7 @@ export default function AdminPage() {
               {workers.map((worker) => worker && (
                 <div key={worker.id} className="glass rounded-2xl p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <div className={`w-8 h-8 rounded-lg bg-${worker.color}/10 border border-${worker.color}/20 flex items-center justify-center text-xs font-bold text-${worker.color}`}>
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
                       {worker.avatar}
                     </div>
                     <span className={`w-2 h-2 rounded-full mt-1 ${agentLiveStatus(worker.id) === "active" ? "bg-success animate-pulse" : "bg-white/20"}`} />
@@ -462,7 +617,7 @@ export default function AdminPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* ARIA Chat */}
-              <div className="glass rounded-2xl flex flex-col" style={{ height: "480px" }}>
+              <div className="glass rounded-2xl flex flex-col" style={{ height: "520px" }}>
                 <div className="flex items-center justify-between p-4 border-b border-white/5">
                   <div className="flex items-center gap-2">
                     <Bot className="w-4 h-4 text-primary" />
@@ -490,17 +645,20 @@ export default function AdminPage() {
                   )}
                   {chatHistory.map((msg, i) => (
                     <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
+                      <div className={`max-w-[85%] rounded-xl px-3 py-2 ${
                         msg.role === "user"
-                          ? "bg-primary/15 text-foreground"
+                          ? "bg-primary/15 text-foreground text-sm"
                           : msg.role === "system"
                           ? "bg-destructive/10 text-destructive text-xs"
                           : "bg-white/5 text-foreground"
                       }`}>
                         {msg.role === "assistant" && (
-                          <p className="text-xs text-primary mb-1 font-medium">{msg.agent ?? "Agent"}</p>
+                          <p className="text-xs text-primary mb-1.5 font-medium">{msg.agent ?? "Agent"}</p>
                         )}
-                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        {msg.role === "assistant"
+                          ? <MarkdownMessage content={msg.content} />
+                          : <p className="text-sm leading-relaxed">{msg.content}</p>
+                        }
                       </div>
                     </div>
                   ))}
@@ -532,7 +690,7 @@ export default function AdminPage() {
               </div>
 
               {/* Live activity feed */}
-              <div className="glass rounded-2xl p-4 space-y-3" style={{ height: "480px", overflowY: "auto" }}>
+              <div className="glass rounded-2xl p-4 space-y-3" style={{ height: "520px", overflowY: "auto" }}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Activity className="w-4 h-4 text-success" />
@@ -603,10 +761,10 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3">
                           {c.wallet_verified
-                            ? <span className="flex items-center gap-1 text-success text-xs"><CheckCircle2 className="w-3.5 h-3.5" /> Verifiziert</span>
+                            ? <span className="flex items-center gap-1 text-success text-xs"><Wallet className="w-3.5 h-3.5" /> Verifiziert</span>
                             : <span className="flex items-center gap-1 text-muted-foreground text-xs"><XCircle className="w-3.5 h-3.5" /> Nicht verifiziert</span>}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">{c.nationality ?? c.city ?? "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{c.country ?? c.nationality ?? "—"}</td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
                           {new Date(c.created_at).toLocaleDateString("de-CH")}
                         </td>
@@ -642,11 +800,10 @@ export default function AdminPage() {
                       <p className="text-sm text-foreground font-medium">
                         {c.first_name && c.last_name ? `${c.first_name} ${c.last_name}` : "Unbekannter Nutzer"}
                       </p>
-                      <p className="text-xs text-muted-foreground">{c.nationality ?? "Nationalität unbekannt"}</p>
+                      <p className="text-xs text-muted-foreground">{c.nationality ?? c.country ?? "Nationalität unbekannt"} · Seit {new Date(c.created_at).toLocaleDateString("de-CH")}</p>
                     </div>
                     <span className="text-xs text-yellow-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Ausstehend
+                      <Clock className="w-3 h-3" /> Ausstehend
                     </span>
                   </div>
                 ))}
@@ -700,7 +857,7 @@ export default function AdminPage() {
             {/* Force trigger */}
             <div className="glass rounded-2xl p-5 space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Play className="w-4 h-4 text-primary" /> Agent forcieren
+                <Play className="w-4 h-4 text-primary" /> Agent manuell starten
               </h3>
               <div className="flex gap-3">
                 <select value={forceAgent} onChange={(e) => setForceAgent(e.target.value)}
@@ -711,7 +868,7 @@ export default function AdminPage() {
                 </select>
                 <input value={forceTask} onChange={(e) => setForceTask(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && forceAgentTask()}
-                  placeholder="Aufgabe eingeben…"
+                  placeholder="Aufgabe / Frage eingeben…"
                   className="flex-1 bg-card border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors" />
                 <button onClick={forceAgentTask} disabled={forceLoading || !forceTask.trim()}
                   className="flex items-center gap-2 px-4 py-2.5 bg-primary/20 text-primary rounded-xl hover:bg-primary/30 disabled:opacity-40 transition-colors text-sm font-medium whitespace-nowrap">
@@ -721,9 +878,9 @@ export default function AdminPage() {
               </div>
               {forceResult && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                  className="bg-white/5 border border-white/10 rounded-xl p-4">
                   <p className="text-xs text-primary font-medium mb-2">{AGENT_REGISTRY[forceAgent]?.name ?? forceAgent} — Ergebnis</p>
-                  {forceResult}
+                  <MarkdownMessage content={forceResult} />
                 </motion.div>
               )}
             </div>
@@ -732,9 +889,9 @@ export default function AdminPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: "Aktive Agenten", value: Object.values(AGENT_REGISTRY).filter(a => agentLiveStatus(a.id) === "active").length },
-                { label: "Logs (gesamt)", value: logs.length },
-                { label: "Abgeschlossen", value: logs.filter(l => l.status === "completed").length },
-                { label: "Laufend", value: logs.filter(l => l.status === "running").length },
+                { label: "Logs (gesamt)",  value: logs.length },
+                { label: "Abgeschlossen",  value: logs.filter(l => l.status === "completed").length },
+                { label: "Laufend",        value: logs.filter(l => l.status === "running").length },
               ].map(({ label, value }) => (
                 <div key={label} className="glass rounded-xl p-4">
                   <p className="text-xl font-bold text-foreground">{value}</p>
@@ -817,7 +974,7 @@ export default function AdminPage() {
                       className="overflow-hidden"
                     >
                       <div className="px-5 pb-5 pt-0 border-t border-white/5">
-                        <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-mono leading-relaxed mt-3">
+                        <pre className="text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed mt-3 font-mono">
                           {doc.content}
                         </pre>
                       </div>
@@ -832,8 +989,8 @@ export default function AdminPage() {
                 <span className="text-sm font-semibold text-foreground">Agent Monitoring</span>
               </div>
               <p className="text-xs text-muted-foreground mb-3">Log-Tabelle, Filter und manueller Agent-Trigger sind im Tab &quot;Monitoring&quot; verfügbar.</p>
-              <button onClick={() => setTab("monitoring")} className="text-xs text-primary hover:underline">
-                → Zum Monitoring
+              <button onClick={() => setTab("monitoring")} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <ArrowRight className="w-3 h-3" /> Zum Monitoring
               </button>
             </div>
           </motion.div>

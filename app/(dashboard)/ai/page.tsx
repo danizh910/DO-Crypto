@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, Bot, User, ChevronLeft, Sparkles } from "lucide-react";
+import MarkdownMessage from "@/components/ui/MarkdownMessage";
 
 type EmployeeId = "lena" | "marco" | "sarah";
 
@@ -240,12 +241,15 @@ export default function AIPage() {
                     {selected.avatar}
                   </div>
                 )}
-                <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${
                   msg.role === "user"
-                    ? "bg-primary/20 text-foreground rounded-tr-sm"
+                    ? "bg-primary/20 text-foreground rounded-tr-sm text-sm leading-relaxed"
                     : "glass text-foreground rounded-tl-sm"
                 }`}>
-                  {msg.content}
+                  {msg.role === "assistant"
+                    ? <MarkdownMessage content={msg.content} />
+                    : msg.content
+                  }
                 </div>
                 {msg.role === "user" && (
                   <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">

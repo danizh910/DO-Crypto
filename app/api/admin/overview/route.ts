@@ -25,6 +25,7 @@ export async function GET() {
     const [
       { count: totalUsers },
       { count: pendingKyc },
+      { count: completedKyc },
       { count: txToday },
       { count: activeStaking },
       { data: customers },
@@ -34,6 +35,7 @@ export async function GET() {
     ] = await Promise.all([
       db.from("profiles").select("*", { count: "exact", head: true }),
       db.from("profiles").select("*", { count: "exact", head: true }).eq("onboarding_complete", false),
+      db.from("profiles").select("*", { count: "exact", head: true }).eq("onboarding_complete", true),
       db.from("transactions").select("*", { count: "exact", head: true })
         .gte("created_at", new Date(Date.now() - 86400000).toISOString()),
       db.from("staking_positions").select("*", { count: "exact", head: true }).eq("status", "active"),
@@ -52,6 +54,29 @@ export async function GET() {
         .order("created_at", { ascending: false }).limit(10);
       swaps = (swapData ?? []) as Array<Record<string, unknown>>;
     } catch { /* table not yet created */ }
+
+    // Purchase revenue
+    type PurchaseRow = { fiat_amount: number; fiat_currency: string };
+    let purchaseRevenue = { totalChf: 0, totalEur: 0, totalUsd: 0, count: 0 };
+    try {
+      const { data: purchases } = await db.from("purchase_transactions")
+        .select("fiat_amount, fiat_currency").eq("status", "confirmed");
+      (purchases ?? [] as PurchaseRow[]).forEach((p: PurchaseRow) => {
+        const amt = parseFloat(String(p.fiat_amount));
+        if (p.fiat_currency === "CHF") purchaseRevenue.totalChf += amt;
+        else if (p.fiat_currency === "EUR") purchaseRevenue.totalEur += amt;
+        else if (p.fiat_currency === "USD") purchaseRevenue.totalUsd += amt;
+        purchaseRevenue.count++;
+      });
+    } catch { /* table may not exist */ }
+
+    // Verified wallets count
+    const { count: verifiedWallets } = await db.from("wallets")
+      .select("*", { count: "exact", head: true }).eq("is_verified", true);
+
+    // Users who have at least one transaction
+    const { data: txUserIds } = await db.from("transactions").select("user_id");
+    const activeTraders = new Set((txUserIds ?? []).map((r: { user_id: string }) => r.user_id)).size;
 
     // Wallets for KYC
     const { data: wallets } = await db.from("wallets").select("user_id, is_verified");
@@ -87,13 +112,17 @@ export async function GET() {
 
     return NextResponse.json({
       stats: {
-        totalUsers:    totalUsers    ?? 0,
-        pendingKyc:    pendingKyc    ?? 0,
-        txToday:       txToday       ?? 0,
-        activeStaking: activeStaking ?? 0,
-        totalVolume:   totalVolume.toFixed(4),
-        totalSwaps:    swaps.length,
+        totalUsers:       totalUsers       ?? 0,
+        pendingKyc:       pendingKyc       ?? 0,
+        completedKyc:     completedKyc     ?? 0,
+        txToday:          txToday          ?? 0,
+        activeStaking:    activeStaking    ?? 0,
+        totalVolume:      totalVolume.toFixed(4),
+        totalSwaps:       swaps.length,
+        verifiedWallets:  verifiedWallets  ?? 0,
+        activeTraders,
       },
+      purchaseRevenue,
       customers:        enrichedCustomers,
       recentTx:         recentTx ?? [],
       largeTx,
