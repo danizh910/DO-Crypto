@@ -57,7 +57,7 @@ export async function GET() {
 
     // Purchase revenue
     type PurchaseRow = { fiat_amount: number; fiat_currency: string };
-    let purchaseRevenue = { totalChf: 0, totalEur: 0, totalUsd: 0, count: 0 };
+    const purchaseRevenue = { totalChf: 0, totalEur: 0, totalUsd: 0, count: 0 };
     try {
       const { data: purchases } = await db.from("purchase_transactions")
         .select("fiat_amount, fiat_currency").eq("status", "confirmed");
