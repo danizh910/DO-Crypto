@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { callAgent } from "@/lib/agents/groq_client";
 import { AGENT_REGISTRY, detectDelegation } from "@/lib/agents/agent_registry";
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@docrypto.ch";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "daniel.luterbach06@gmail.com";
 
 function serviceClient() {
   return createClient(

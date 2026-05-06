@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "admin@docrypto.ch";
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "daniel.luterbach06@gmail.com";
 
 const navItems = [
   { href: "/portfolio",    label: "Portfolio",      icon: LayoutDashboard },

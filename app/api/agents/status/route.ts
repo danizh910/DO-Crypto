@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@docrypto.ch";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "daniel.luterbach06@gmail.com";
 
 export async function GET() {
   try {

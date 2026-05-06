@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
 
   // Admin routes: only for admin email
   if (user && isAdmin) {
-    const adminEmail = process.env.ADMIN_EMAIL ?? "admin@docrypto.ch";
+    const adminEmail = process.env.ADMIN_EMAIL ?? "daniel.luterbach06@gmail.com";
     if (user.email !== adminEmail) {
       const url = request.nextUrl.clone();
       url.pathname = "/portfolio";
