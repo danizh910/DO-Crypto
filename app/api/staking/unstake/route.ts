@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate simulated rewards
-    const startMs   = new Date(position.started_at ?? new Date()).getTime();
+    const startMs   = new Date(position.started_at ?? position.created_at ?? new Date()).getTime();
     const days      = (Date.now() - startMs) / (1000 * 60 * 60 * 24);
     const principal = parseFloat(position.amount);
     const rewards   = principal * (position.apy_at_stake / 100) * (days / 365);

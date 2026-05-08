@@ -67,6 +67,9 @@ export async function POST(req: NextRequest) {
     }
 
     const alchemyData = await alchemyRes.json();
+    if (alchemyData.error) {
+      return NextResponse.json({ error: `Alchemy: ${alchemyData.error.message ?? alchemyData.error.code}` }, { status: 502 });
+    }
     const transfers: Array<{
       hash: string;
       value: number;

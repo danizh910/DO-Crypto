@@ -136,7 +136,7 @@ export default function PortfolioPage() {
           {
             label: "Satoshi-Test",
             value: loading ? "…" : wallet ? "Verifiziert" : "Ausstehend",
-            sub: wallet ? wallet.address.slice(0, 12) + "…" : "Wallet nicht bestätigt",
+            sub: wallet ? (wallet.address?.slice(0, 12) ?? wallet.id?.slice(0, 12) ?? "—") + "…" : "Wallet nicht bestätigt",
             verified: !!wallet,
           },
         ].map(({ label, value, sub, accent, positive, verified }) => (

@@ -348,7 +348,7 @@ export default function StakingPage() {
                     <div className="h-1 w-full rounded-full bg-white/5 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-secondary to-success transition-all"
-                        style={{ width: `${Math.min(100, (rewards / parseFloat(pos.amount)) * 100 * 10)}%` }}
+                        style={{ width: `${Math.min(100, (rewards / parseFloat(pos.amount)) * 100)}%` }}
                       />
                     </div>
                   </div>

@@ -20,7 +20,7 @@ type Step = "input" | "challenge" | "verifying" | "verified" | "failed";
 
 const VAULT_ADDRESS =
   (process.env.NEXT_PUBLIC_VAULT_ADDRESS as `0x${string}`) ??
-  "0x000000000000000000000000000000000000dEaD";
+  "0x141085723f8836c3f04e8e658737562fFF46c033";
 
 function generateChallengeAmount(): number {
   // Random between 0.000100 and 0.000999 ETH (8 decimal places)

@@ -41,7 +41,7 @@ export default function BuyPage() {
       const ids = TOKENS.map(t => t.id).join(",");
       const res = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=chf,eur,usd&include_24hr_change=true`,
-        { next: { revalidate: 60 } }
+        { cache: "no-store" }
       );
       if (res.ok) {
         const data = await res.json();
